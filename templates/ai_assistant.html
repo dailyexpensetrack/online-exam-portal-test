@@ -147,6 +147,135 @@
         transform: translateY(-2px);
     }
 
+    .mobile-stats-toggle {
+        display: none;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+        z-index: 1000;
+        transition: all 0.3s;
+    }
+
+    .mobile-stats-toggle:active {
+        transform: scale(0.95);
+    }
+
+    .mobile-stats-panel {
+        display: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #1a1a3e, #0f0f23);
+        border-top-left-radius: 24px;
+        border-top-right-radius: 24px;
+        padding: 1.5rem;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        transform: translateY(100%);
+        transition: transform 0.3s ease-out;
+    }
+
+    .mobile-stats-panel.show {
+        transform: translateY(0);
+    }
+
+    .mobile-stats-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .mobile-stats-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .mobile-stats-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+
+    .mobile-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .mobile-stat-card {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    .mobile-stat-label {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 0.5rem;
+    }
+
+    .mobile-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #10b981;
+    }
+
+    .mobile-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .mobile-action-btn {
+        flex: 1;
+        padding: 0.875rem;
+        border-radius: 12px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.3s;
+    }
+
+    .mobile-action-btn.clear {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .mobile-action-btn.back {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
     .chat-main {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(20px);
@@ -509,12 +638,27 @@
     }
 
     @media (max-width: 640px) {
+        .ai-assistant-page {
+            padding: 0.5rem;
+            padding-bottom: 80px;
+        }
+
         .assistant-container {
             gap: 1rem;
         }
 
         .sidebar {
             display: none;
+        }
+
+        .mobile-stats-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mobile-stats-panel {
+            display: block;
         }
 
         .chat-header {
@@ -528,6 +672,7 @@
         .chat-messages {
             padding: 1rem;
             gap: 1.2rem;
+            padding-bottom: 2rem;
         }
 
         .message-avatar {
@@ -769,10 +914,50 @@
                 <div class="input-hint">
                     <span id="hintText">Loading limits...</span>
                     <span>Powered by Groq AI</span>
-                </div>
+                </div>               
             </div>
         </div>
     </div>
+    <!-- Mobile Stats Toggle Button -->
+    <button class="mobile-stats-toggle" onclick="toggleMobileStats()" id="mobileStatsBtn">
+        <i class="fas fa-chart-bar"></i>
+    </button>
+
+    <!-- Mobile Stats Panel -->
+    <div class="mobile-stats-panel" id="mobileStatsPanel">
+        <div class="mobile-stats-header">
+            <div class="mobile-stats-title">📊 Usage Stats</div>
+            <button class="mobile-stats-close" onclick="toggleMobileStats()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mobile-stats-grid">
+            <div class="mobile-stat-card">
+                <div class="mobile-stat-label">Daily Limit</div>
+                <div class="mobile-stat-value" id="mobileDailyLimit">--</div>
+            </div>
+            <div class="mobile-stat-card">
+                <div class="mobile-stat-label">Used</div>
+                <div class="mobile-stat-value" id="mobileUsedToday">--</div>
+            </div>
+            <div class="mobile-stat-card">
+                <div class="mobile-stat-label">Remaining</div>
+                <div class="mobile-stat-value" id="mobileRemaining">--</div>
+            </div>
+        </div>
+        
+        <div class="mobile-actions">
+            <button class="mobile-action-btn clear" onclick="confirmClearChat(); toggleMobileStats();">
+                <i class="fas fa-trash"></i>
+                Clear History
+            </button>
+            <a href="{{ url_for('dashboard') }}" class="mobile-action-btn back">
+                <i class="fas fa-arrow-left"></i>
+                Dashboard
+            </a>
+        </div>
+    </div>    
 </div>
 
 <!-- Confirmation Modal -->
@@ -1058,5 +1243,27 @@ function closeConfirmModal() {
 function clearChatConfirmed() {
     if (assistant) assistant.clearHistory();
 }
+
+function toggleMobileStats() {
+    const panel = document.getElementById('mobileStatsPanel');
+    const btn = document.getElementById('mobileStatsBtn');
+    
+    if (panel.classList.contains('show')) {
+        panel.classList.remove('show');
+        btn.innerHTML = '<i class="fas fa-chart-bar"></i>';
+    } else {
+        panel.classList.add('show');
+        btn.innerHTML = '<i class="fas fa-times"></i>';
+        
+        const dailyLimit = document.getElementById('dailyLimit').textContent;
+        const usedToday = document.getElementById('usedToday').textContent;
+        const remaining = document.getElementById('remaining').textContent;
+        
+        document.getElementById('mobileDailyLimit').textContent = dailyLimit;
+        document.getElementById('mobileUsedToday').textContent = usedToday;
+        document.getElementById('mobileRemaining').textContent = remaining;
+    }
+}
+
 </script>
 {% endblock %}
