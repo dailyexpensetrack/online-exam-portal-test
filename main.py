@@ -180,9 +180,7 @@ RESPONSES_CSV = 'responses.csv'
 print("🔍 Checking environment variables...")
 required_env_vars = [
     'SECRET_KEY', 
-    'GOOGLE_SERVICE_ACCOUNT_JSON',
-    'BIGQUERY_PROJECT_ID',  
-    'BIGQUERY_DATASET_ID'   
+    'GOOGLE_SERVICE_ACCOUNT_JSON',  
 ]
 
 for var in required_env_vars:
@@ -241,15 +239,7 @@ app_cache = {
 }
 
 
-# ============================
-# AI Chat Background Save System
-# ============================
-chat_save_queue = queue.Queue(maxsize=100)
-chat_cache = {
-    'messages': {},  # {user_id: [messages]}
-    'pending_saves': set()  # user_ids with unsaved data
-}
-cache_lock = threading.Lock()
+
 
 
 from flask import current_app
@@ -2176,128 +2166,13 @@ def calculate_student_analytics(results_list, exams_list, user_id):
 
 
 # =============================================
-# AI CHAT BACKGROUND SAVE WORKER
-# =============================================
-
-def chat_background_saver():
-    """Background thread jo queue se messages uthake CSV mein save karta hai"""
-    print("✅ Chat background saver started")
-    batch = []
-    last_save_time = time.time()
-    
-    while True:
-        try:
-            # Queue se message lo (5 second timeout)
-            try:
-                item = chat_save_queue.get(timeout=5)
-                batch.append(item)
-            except queue.Empty:
-                # Queue empty hai, check karo kya save karna hai
-                pass
-            
-            # Batch save conditions:
-            # 1. 5 messages ho gaye
-            # 2. Ya 10 seconds ho gaye last save ke baad
-            current_time = time.time()
-            should_save = (
-                len(batch) >= 5 or 
-                (len(batch) > 0 and (current_time - last_save_time) > 10)
-            )
-            
-            if should_save:
-                print(f"💾 Background save: {len(batch)} items")
-                
-                # Batch ko process karo
-                for item in batch:
-                    try:
-                        item_type = item.get('type')
-                        
-                        if item_type == 'message':
-                            # Message save karo
-                            _save_message_to_csv(
-                                item['user_id'],
-                                item['message'],
-                                item['is_user']
-                            )
-                        
-                        elif item_type == 'usage':
-                            # Usage counter update karo
-                            _increment_usage_csv(item['user_id'])
-                        
-                    except Exception as e:
-                        print(f"Error saving item: {e}")
-                
-                # Batch clear karo
-                batch.clear()
-                last_save_time = current_time
-                print("✅ Batch saved successfully")
-                
-        except Exception as e:
-            print(f"Background saver error: {e}")
-            time.sleep(1)
-
-
-def _save_message_to_csv(user_id, message, is_user):
-    """Internal function - Direct Supabase save (background thread)"""
-    try:
-        from supabase_db import supabase  # ✅ Direct import
-        
-        new_message = {
-            'user_id': int(user_id),
-            'message': str(message),
-            'is_user': bool(is_user),
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        print(f"💬 [BG_SAVE] Attempting to save message for user {user_id}")
-        
-        # ✅ Direct Supabase insert (bypass the queue)
-        response = supabase.table('ai_chat_history').insert(new_message).execute()
-        
-        if response.data:
-            print(f"✅ [BG_SAVE] Message saved for user {user_id}")
-        else:
-            print(f"❌ [BG_SAVE] Failed to save message for user {user_id}")
-        
-    except Exception as e:
-        print(f"❌ [BG_SAVE] Error: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-def _increment_usage_csv(user_id):
-    """Internal function - Direct Supabase usage update - NO FLASK CONTEXT"""
-    try:
-        if increment_usage(user_id):
-            print(f"Background: Incremented usage for user {user_id}")
-        else:
-            print(f"Background: Failed to increment usage for user {user_id}")
-        
-    except Exception as e:
-        print(f"Error in _increment_usage_csv: {e}")
-
-
-
-
-
-# Start background thread
-try:
-    saver_thread = threading.Thread(target=chat_background_saver, daemon=True)
-    saver_thread.start()
-    print("✅ AI chat background saver initialized")
-except Exception as e:
-    print(f"❌ Failed to start background saver: {e}")
-
-# =============================================
 # AI ASSISTANT HELPER FUNCTIONS
 # =============================================
 
 def get_user_chat_limits(user_id):
-    """Get user's chat usage and limits from Supabase - ALWAYS FRESH DATA"""
+    """Get user's chat usage and limits from Supabase"""
     try:
         today = datetime.now().strftime('%Y-%m-%d')
-        
-        # ✅ Get usage from Supabase
         usage_data = get_today_usage(user_id)
         
         questions_used = 0
@@ -2312,8 +2187,6 @@ def get_user_chat_limits(user_id):
         
     except Exception as e:
         print(f"Error getting chat limits: {e}")
-        import traceback
-        traceback.print_exc()
         return {
             'daily_limit': AI_DAILY_LIMIT,
             'questions_used': 0,
@@ -2321,71 +2194,14 @@ def get_user_chat_limits(user_id):
         }
 
 
-def increment_chat_usage(user_id):
-    """Increment user's chat usage counter (background save)"""
+def get_user_chat_history(user_id, limit=50):
+    """Get user's chat history from Supabase"""
     try:
-        # Queue mein add karo
-        chat_save_queue.put({
-            'type': 'usage',
-            'user_id': user_id
-        }, block=False)
-        
-    except queue.Full:
-        print("⚠️ Usage queue full, saving directly")
-        _increment_usage_csv(user_id)
-    except Exception as e:
-        print(f"Error queuing usage increment: {e}")
-
-
-def queue_chat_message(user_id, message, is_user):  # ✅ RENAMED to avoid confusion
-    """Queue chat message for background save"""
-    try:
-        # Queue mein add karo (instant operation)
-        chat_save_queue.put({
-            'type': 'message',
-            'user_id': user_id,
-            'message': message,
-            'is_user': is_user,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }, block=False)
-        
-        print(f"📤 [QUEUE] Message queued for user {user_id}")
-        
-        # Cache mein bhi add karo (for instant display)
-        with cache_lock:
-            if user_id not in chat_cache['messages']:
-                chat_cache['messages'][user_id] = deque(maxlen=30)
-            
-            chat_cache['messages'][user_id].append({
-                'text': message,
-                'isUser': is_user,
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            })
-        
-    except queue.Full:
-        print("⚠️ Save queue full, saving directly")
-        _save_message_to_csv(user_id, message, is_user)
-    except Exception as e:
-        print(f"Error queuing chat message: {e}")
-
-
-def get_user_chat_history(user_id, limit=10):
-    """Get user's chat history (cache first, then Supabase)"""
-    try:
-        # Pehle cache check karo (instant)
-        with cache_lock:
-            if user_id in chat_cache['messages']:
-                cached = list(chat_cache['messages'][user_id])
-                if len(cached) >= limit:
-                    return cached[-limit:]
-        
-        # Cache mein nahi hai ya kam hai, Supabase se lo
-        user_chats = get_chat_history(user_id, limit=limit * 2)
+        user_chats = get_chat_history(user_id, limit=limit)
         
         if not user_chats:
             return []
         
-        # Sort by timestamp
         user_chats.sort(key=lambda x: x.get('timestamp', ''))
         
         history = []
@@ -2396,10 +2212,6 @@ def get_user_chat_history(user_id, limit=10):
                 'timestamp': chat.get('timestamp', '')
             })
         
-        # Cache mein store kar lo
-        with cache_lock:
-            chat_cache['messages'][user_id] = deque(history, maxlen=30)
-        
         return history
         
     except Exception as e:
@@ -2408,7 +2220,7 @@ def get_user_chat_history(user_id, limit=10):
 
 
 def get_groq_response(user_message, chat_history=None):
-    """Get AI response from Groq API with advanced multi-subject support"""
+    """Get AI response from Groq API"""
     try:
         import requests
         
@@ -2430,96 +2242,42 @@ MATHEMATICS:
 - Display: $$E = mc^2$$
 - Greek: $\\alpha$, $\\beta$, $\\gamma$, $\\theta$, $\\mu$, $\\Delta$, $\\Sigma$, $\\pi$
 - Vectors: $\\vec{F}$, $\\vec{v}$, $\\hat{i}$, $\\hat{j}$, $\\hat{k}$
-- Calculus: $\\frac{d}{dx}$, $\\int$, $\\lim_{x\\to\\infty}$, $\\nabla$
-- Sets: $\\in$, $\\subset$, $\\cup$, $\\cap$, $\\emptyset$
 
 CHEMISTRY:
 - Formulas: \\ce{H2O}, \\ce{C6H5CHO}, \\ce{CH3COOH}
 - Reactions: \\ce{A + B -> C}, \\ce{2H2 + O2 -> 2H2O}
-- Equilibrium: \\ce{A <=> B}, \\ce{N2 + 3H2 <=> 2NH3}
-- Ions: \\ce{Na+}, \\ce{SO4^2-}, \\ce{H3O+}
-- States: \\ce{H2O_{(l)}}, \\ce{CO2_{(g)}}, \\ce{NaCl_{(s)}}
-- Complex: \\ce{C6H5CHO ->[base] C6H5COOH + H2O}
+- Equilibrium: \\ce{A <=> B}
+- Ions: \\ce{Na+}, \\ce{SO4^2-}
 
 PHYSICS:
-- Units: Always use text mode: $5\\text{ m/s}$, $10\\text{ kg}$, $9.8\\text{ m/s}^2$
-- Vectors: $\\vec{F} = m\\vec{a}$, $|\\vec{v}| = \\sqrt{v_x^2 + v_y^2}$
-- Constants: $c = 3\\times10^8\\text{ m/s}$, $h = 6.626\\times10^{-34}\\text{ J·s}$
-
-BIOLOGY:
-- Use proper notation for DNA/RNA: \\text{DNA}, \\text{5'-ATCG-3'}
-- Chemical processes: Use \\ce{} for biochemical formulas
-
-COMPUTER SCIENCE:
-- Algorithms: Use code blocks for pseudocode
-- Complexity: $O(n)$, $O(n\\log n)$, $\\Theta(n^2)$
+- Units: $5\\text{ m/s}$, $10\\text{ kg}$, $9.8\\text{ m/s}^2$
+- Vectors: $\\vec{F} = m\\vec{a}$
 
 ═══════════════════════════════════════════════════
-RESPONSE FORMAT (Natural, No Bold Markers)
+RESPONSE FORMAT
 ═══════════════════════════════════════════════════
-
-Structure your response naturally with clear sections:
 
 ━━━ FINAL ANSWER ━━━
-[State the direct answer clearly]
+[Direct answer]
 
 ━━━ GIVEN INFORMATION ━━━
-[List known values and conditions]
+[Known values]
 
 ━━━ SOLUTION STEPS ━━━
-[Step-by-step breakdown with equations]
+[Step-by-step with equations]
 
 ━━━ EXPLANATION ━━━
-[Brief concept summary and key insights]
+[Brief concept summary]
 
-═══════════════════════════════════════════════════
-IMPORTANT RULES
-═══════════════════════════════════════════════════
-
-1. NEVER use ** for bold text - use section headers instead
-2. Always write complete, valid LaTeX - NO partial formulas like "$1 1"
-3. Auto-detect the subject and use appropriate notation
-4. For chemistry, ALWAYS use \\ce{} syntax
-5. Show ALL working steps clearly
-6. Explain WHY, not just HOW
-7. Use proper units in physics problems
-8. Be thorough but concise
-
-═══════════════════════════════════════════════════
-
-Example Response:
-
-━━━ FINAL ANSWER ━━━
-The coefficient of friction is $\\mu = 0.364$
-
-━━━ GIVEN INFORMATION ━━━
-- Mass: $m = 5\\text{ kg}$
-- Radius: $r = 20\\text{ m}$
-- Banking angle: $\\theta = 30°$
-- Maximum speed: $v_0 = 15\\text{ m/s}$
-
-━━━ SOLUTION STEPS ━━━
-For a banked circular road, the forces acting are:
-
-Radial direction:
-$$N\\sin\\theta + f\\cos\\theta = \\frac{mv_0^2}{r}$$
-
-Vertical direction:
-$$N\\cos\\theta = mg + f\\sin\\theta$$
-
-Where friction $f = \\mu N$. Substituting and solving:
-$$\\mu = \\frac{v_0^2 - rg\\tan\\theta}{rg + v_0^2\\tan\\theta}$$
-
-Plugging in values:
-$$\\mu = \\frac{(15)^2 - (20)(9.8)\\tan(30°)}{(20)(9.8) + (15)^2\\tan(30°)} = 0.364$$
-
-━━━ EXPLANATION ━━━
-On a banked road, the normal force provides part of the centripetal force. The friction coefficient ensures the vehicle doesn't slip at the given speed. The angle of banking reduces the required friction for circular motion."""
+RULES:
+1. NEVER use ** for bold
+2. Always write complete LaTeX
+3. Show ALL steps
+4. Explain WHY, not just HOW"""
             }
         ]
         
         if chat_history:
-            # Include last 4 messages for context
             for msg in chat_history[-4:]:
                 messages.append({
                     "role": "user" if msg.get('isUser') else "assistant",
@@ -2541,12 +2299,12 @@ On a banked road, the normal force provides part of the centripetal force. The f
                 'model': AI_MODEL_NAME,
                 'messages': messages,
                 'temperature': 0.2,
-                'max_tokens': 4000,  # Increased for detailed responses
+                'max_tokens': 4000,
                 'top_p': 0.95,
                 'frequency_penalty': 0.5,
                 'presence_penalty': 0.3
             },
-            timeout=AI_REQUEST_TIMEOUT  # Increased timeout for complex problems
+            timeout=AI_REQUEST_TIMEOUT
         )
         
         if response.status_code == 200:
@@ -2560,8 +2318,6 @@ On a banked road, the normal force provides part of the centripetal force. The f
         return "Request timed out. Please try asking your question again."
     except Exception as e:
         print(f"Error getting Groq response: {e}")
-        import traceback
-        traceback.print_exc()
         return "I encountered an error. Please try again."
 
 
@@ -3416,7 +3172,7 @@ def api_study_chat():
             }), 400
 
         user_message = data['message'].strip()
-        # Validate message length
+        
         if len(user_message) > AI_MAX_MESSAGE_LENGTH:
             return jsonify({
                 'success': False,
@@ -3428,6 +3184,7 @@ def api_study_chat():
                 'success': False,
                 'message': 'Message too short. Minimum 3 characters required.'
             }), 400
+            
         user_id = session.get('user_id')
         
         limits = get_user_chat_limits(user_id)
@@ -3440,15 +3197,38 @@ def api_study_chat():
 
         chat_history = get_user_chat_history(user_id, limit=6)
         
-        queue_chat_message(user_id, user_message, is_user=True)  # ✅ Use renamed function
+        print(f"💬 [CHAT] User {user_id} asking: {user_message[:50]}...")
+        
+        user_msg_data = {
+            'user_id': user_id,
+            'message': user_message,
+            'is_user': True,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        if not save_chat_message(user_msg_data):
+            print(f"⚠️ [CHAT] Failed to save user message")
 
         ai_response = get_groq_response(user_message, chat_history)
-
-        queue_chat_message(user_id, ai_response, is_user=False)  # ✅ Use renamed function
         
-        increment_chat_usage(user_id)
+        print(f"🤖 [CHAT] AI responding: {ai_response[:50]}...")
+
+        ai_msg_data = {
+            'user_id': user_id,
+            'message': ai_response,
+            'is_user': False,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        if not save_chat_message(ai_msg_data):
+            print(f"⚠️ [CHAT] Failed to save AI message")
+        
+        if not increment_usage(user_id):
+            print(f"⚠️ [CHAT] Failed to increment usage")
         
         updated_limits = get_user_chat_limits(user_id)
+        
+        print(f"✅ [CHAT] Chat completed. Usage: {updated_limits['questions_used']}/{updated_limits['daily_limit']}")
         
         return jsonify({
             'success': True,
@@ -3464,7 +3244,7 @@ def api_study_chat():
             'success': False,
             'message': 'Error processing your request'
         }), 500
-        
+
 
 @app.route('/api/get-chat-history')
 @require_user_role
@@ -3494,13 +3274,7 @@ def api_clear_chat_history():
     try:
         user_id = session.get('user_id')
         
-        # ✅ Delete from Supabase
         if delete_user_chat_history(user_id):
-            # Clear cache
-            with cache_lock:
-                if user_id in chat_cache['messages']:
-                    del chat_cache['messages'][user_id]
-            
             return jsonify({
                 'success': True,
                 'message': 'Chat history cleared successfully'
@@ -3513,15 +3287,12 @@ def api_clear_chat_history():
         
     except Exception as e:
         print(f"[API_CLEAR_CHAT_HISTORY] Error: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Error clearing history'
         }), 500
-        
-        
-        
+
+
 @app.route('/api/get-user-limits')
 @require_user_role
 def api_get_user_limits():
