@@ -14,6 +14,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
 
     <!-- MathJax for LaTeX rendering on response page -->
     <script>
@@ -39,11 +40,10 @@
     }
     
     body {
-        background: linear-gradient(135deg, #0f1724 0%, #141428 40%, #1b2440 100%);
+        background: #0a0a0f;
         min-height: 100vh;
-        font-family: 'Inter','Segoe UI',Tahoma,Verdana,sans-serif;
-        display: flex;
-        flex-direction: column;
+        font-family: 'DM Sans', 'Inter', -apple-system, sans-serif;
+        display: flex; flex-direction: column;
         color: #e6eef8;
     }
     
@@ -51,109 +51,50 @@
         flex: 1; 
     }
 
-    /* NAVBAR - Fixed styling */
     .navbar {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #2d2d5f 100%);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 0;
-        padding: 1rem 0;
-        margin: 0;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        position: relative;
-        z-index: 1000;
+        background: #0d0d12;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        padding: 0.7rem 0;
+        position: relative; z-index: 1000;
+        box-shadow: none;
     }
-
-    .navbar::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.05) 100%);
-        z-index: -1;
-    }
-
-    .navbar .container-fluid { 
-        display: flex; 
-        align-items: center; 
-        justify-content: space-between;
-        padding: 0 2rem;
-    }
-
-    /* BRAND - Non-clickable */
+    .navbar::before { display: none; }
+    .navbar .container-fluid { display:flex; align-items:center; justify-content:space-between; padding: 0 1.5rem; }
     .navbar-brand {
-        display: flex;
-        align-items: center;
-        gap: 0.7rem;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 1.3rem;
-        text-decoration: none;
-        cursor: default;
-        pointer-events: none; /* Make completely non-clickable */
+        display: flex; align-items: center; gap: 0.6rem;
+        font-family: 'DM Serif Display', serif;
+        font-weight: 400; font-size: 1.15rem;
+        color: white; text-decoration: none;
+        cursor: default; pointer-events: none;
     }
-
     .navbar-brand i {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        padding: 10px;
-        border-radius: 12px;
-        color: white;
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.25);
+        background: #2d5be3; padding: 8px; border-radius: 10px;
+        color: white; font-size: 0.95rem;
+        box-shadow: none;
     }
-
-    /* NAVIGATION LINKS - Fixed hover issues */
-    .navbar-nav {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
+    .navbar-nav { display:flex; align-items:center; gap: 0.3rem; }
     .navbar-text {
-        color: rgba(255, 255, 255, 0.8) !important;
-        font-weight: 500;
-        margin: 0 1rem 0 0 !important;
-        white-space: nowrap;
+        color: rgba(255,255,255,0.35) !important;
+        font-weight: 500; font-size: 0.82rem;
+        margin: 0 0.6rem 0 0 !important; white-space: nowrap;
     }
-
     .nav-link {
-        color: rgba(255, 255, 255, 0.9) !important;
-        font-weight: 600;
-        padding: 0.6rem 1.2rem !important;
-        border-radius: 10px;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        text-decoration: none;
-        border: 1px solid transparent;
-        white-space: nowrap;
-        min-height: 40px; /* Prevent size changes */
-        box-sizing: border-box;
+        color: rgba(255,255,255,0.55) !important;
+        font-weight: 500; font-size: 0.82rem;
+        padding: 0.45rem 0.85rem !important;
+        border-radius: 8px; transition: all 0.2s;
+        display: flex; align-items: center; gap: 0.4rem;
+        text-decoration: none; border: 1px solid transparent;
+        white-space: nowrap; min-height: 34px; box-sizing: border-box;
     }
-
-    /* Fixed hover state - no black text */
     .nav-link:hover {
-        color: #ffffff !important;
-        background: rgba(255, 255, 255, 0.12) !important;
-        border-color: rgba(255, 255, 255, 0.2);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        color: rgba(255,255,255,0.9) !important;
+        background: rgba(255,255,255,0.07) !important;
+        border-color: rgba(255,255,255,0.08);
+        transform: none; box-shadow: none;
     }
-
-    /* Prevent navbar flickering */
-    .nav-link:hover,
-    .nav-link:focus,
-    .nav-link:active {
-        outline: none;
-        text-decoration: none;
-    }
-
-    /* Ensure proper spacing and prevent layout shifts */
-    .navbar-nav .nav-link + .nav-link {
-        margin-left: 0.5rem;
-    }
+    .nav-link:focus, .nav-link:active { outline: none; text-decoration: none; }
+    .nav-link.active { background: rgba(45,91,227,0.15); color: white !important; border-color: rgba(45,91,227,0.2); }
 
     /* Alerts */
     .alert { 
@@ -162,24 +103,81 @@
         margin: 1rem;
     }
 
-    /* Footer */
-    .professional-footer { 
-        background: linear-gradient(135deg,#0b1220,#0f1724); 
-        color: #cfd8ef; 
-        padding: 1.25rem 0; 
-        margin-top: auto; 
-        box-shadow: 0 -2px 12px rgba(2,6,23,0.5); 
-    }
-    
-    .footer-brand { 
-        font-weight: 800; 
-        color: #cfe3ff; 
-    }
-    
-    .footer-links a { 
-        color: #a9bddf; 
-        text-decoration: none;
-    }
+.professional-footer{
+background:#0d0d12;
+border-top:1px solid rgba(255,255,255,0.06);
+color:#cbd5f5;
+padding:20px 0;
+margin-top:auto
+}
+
+.professional-footer .container{
+display:flex;
+align-items:center;
+justify-content:space-between;
+flex-wrap:wrap;
+gap:14px
+}
+
+.footer-brand{
+font-weight:700;
+color:#e2e8f0;
+display:flex;
+align-items:center;
+gap:8px;
+font-size:0.95rem
+}
+
+.footer-brand i{
+color:#8ea2ff
+}
+
+.footer-links{
+display:flex;
+align-items:center;
+gap:18px;
+flex-wrap:wrap
+}
+
+.footer-links a{
+color:#9fb3e6;
+text-decoration:none;
+font-size:0.85rem;
+transition:color .2s
+}
+
+.footer-links a:hover{
+color:#ffffff
+}
+
+.professional-footer p{
+font-size:0.8rem;
+color:#94a3d4;
+margin:0
+}
+
+@media(max-width:768px){
+
+.professional-footer .container{
+flex-direction:column;
+text-align:center;
+gap:10px
+}
+
+.footer-links{
+justify-content:center;
+gap:14px
+}
+
+.footer-links a{
+font-size:0.82rem
+}
+
+.professional-footer p{
+font-size:0.75rem
+}
+
+}
     
     .footer-links a:hover { 
         color: #fff; 
@@ -189,18 +187,19 @@
     body.exam-theme .question-card,
     body.exam-theme .question-container,
     body.exam-theme .question-panel {
-        background: linear-gradient(135deg, #1f2937, #111827) !important;
+        background: #111118 !important;
         color: #e6eef8 !important;
-        box-shadow: 0 6px 20px rgba(2,6,23,0.3) !important;
+        border: 1px solid rgba(255,255,255,0.07) !important;
+        box-shadow: none !important;
     }
 
     body.exam-theme .option,
     body.exam-theme .choice,
     body.exam-theme .answer-option,
     body.exam-theme .option-label {
-        background: #fff !important;
-        color: #0b1220 !important;
-        border: 1px solid rgba(11,18,32,0.06) !important;
+        background: rgba(255,255,255,0.02) !important;
+        color: rgba(255,255,255,0.7) !important;
+        border: 1px solid rgba(255,255,255,0.07) !important;
         border-radius: 10px !important;
         padding: 0.65rem 0.9rem !important;
     }
@@ -305,7 +304,7 @@
                 <a href="{{ url_for('support') }}">Support</a>
                 <a href="{{ url_for('contact') }}">Contact</a>
             </div>
-            <p class="mb-0" style="color:#9fb3e6;">© 2025 ExamPortal</p>
+            <p class="mb-0" style="color:#9fb3e6;">© {{ CURRENT_YEAR }} ExamPortal. All rights reserved.</p>
         </div>
     </footer>
     {% endif %}
