@@ -766,6 +766,11 @@
           <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.users_analytics') %}active{% endif %}" href="{{ url_for('admin.users_analytics') }}">
             <i class="fas fa-chart-line me-3"></i> Users Analytics
           </a>
+        </li>
+        <li class="nav-item mb-2">
+          <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.ai_command_centre') %}active{% endif %}" href="{{ url_for('admin.ai_command_centre') }}">
+            <i class="fas fa-robot me-3"></i> AI Command Centre
+          </a>
         </li>       
         <li class="nav-item mb-4">
           <a class="nav-link publish {% if request.endpoint and request.endpoint.startswith('admin.publish') %}active{% endif %}" href="{{ url_for('admin.publish') }}">
@@ -813,7 +818,7 @@
         <a href="{{ url_for('contact') }}">Contact</a>
       </div>
       <div class="d-flex align-items-center gap-4">
-        <p class="mb-0 fw-medium">&copy; 2025 ExamPortal Admin. All rights reserved.</p>
+        <p class="mb-0 fw-medium">&copy; {{ CURRENT_YEAR }} ExamPortal Admin. All rights reserved.</p>
         <div class="footer-social">
           <a href="#" title="Facebook"><i class="fab fa-facebook-f"></i></a>
           <a href="#" title="Twitter"><i class="fab fa-twitter"></i></a>
