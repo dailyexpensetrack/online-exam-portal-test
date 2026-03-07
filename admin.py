@@ -301,13 +301,13 @@ def logout():
             cleanup_thread.start()
         
         flash("Admin logout successful.", "success")
-        return redirect(url_for("home"))
+        return render_template('logout_redirect.html', is_admin=True)
         
     except Exception as e:
         print(f"[admin_logout] Error: {e}")
         session.clear()
         flash("Admin logout successful.", "success")
-        return redirect(url_for("home"))
+        return render_template('logout_redirect.html', is_admin=True)
 
 # ========== Dashboard ==========
 @admin_bp.route("/dashboard")
@@ -2820,3 +2820,225 @@ def import_questions_csv():
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Import failed: {str(e)}"}), 500    
+
+# ========================
+# AI COMMAND CENTRE ROUTES
+# ========================
+
+@admin_bp.route("/ai-command-centre", methods=["GET"])
+@require_admin_role
+def ai_command_centre():
+    """Main AI Command Centre dashboard"""
+    try:
+        # Get all exams for dropdown
+        exams = get_all_exams()
+        return render_template('admin/ai_command_centre.html', exams=exams)
+    except Exception as e:
+        print(f"Error loading AI Command Centre: {e}")
+        flash('Error loading AI Command Centre', 'error')
+        return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route("/ai-command-centre/generate", methods=["POST"])
+@require_admin_role
+def ai_generate_questions():
+    """Generate questions using AI"""
+    try:
+        # Get form data
+        mode = request.form.get('mode')  # 'extract', 'mine', or 'pure'
+        exam_id = int(request.form.get('exam_id'))
+        difficulty = request.form.get('difficulty', 'Medium')
+        
+        # Question counts and marks
+        config = {
+            'exam_id': exam_id,
+            'difficulty': difficulty,
+            'mcq_count': int(request.form.get('mcq_count', 0)),
+            'msq_count': int(request.form.get('msq_count', 0)),
+            'numeric_count': int(request.form.get('numeric_count', 0)),
+            'mcq_plus': float(request.form.get('mcq_plus', 4)),
+            'mcq_minus': float(request.form.get('mcq_minus', 1)),
+            'msq_plus': float(request.form.get('msq_plus', 4)),
+            'msq_minus': float(request.form.get('msq_minus', 2)),
+            'numeric_plus': float(request.form.get('numeric_plus', 3)),
+            'numeric_tolerance': float(request.form.get('numeric_tolerance', 0.01)),
+            'custom_instructions': request.form.get('custom_instructions', '')
+        }
+        
+        # Import AI generator
+        from ai_question_generator import generate_questions
+        
+        # Handle file upload for Card A & B
+        pdf_path = None
+        if mode in ['extract', 'mine']:
+            if 'pdf_file' not in request.files:
+                return jsonify({'success': False, 'message': 'PDF file required'}), 400
+            
+            file = request.files['pdf_file']
+            if file.filename == '':
+                return jsonify({'success': False, 'message': 'No file selected'}), 400
+            
+            # Save temporarily
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                file.save(tmp.name)
+                pdf_path = tmp.name
+        
+        # Get topic for Card C
+        topic = None
+        if mode == 'pure':
+            topic = request.form.get('topic', '')
+            if not topic:
+                return jsonify({'success': False, 'message': 'Topic required'}), 400
+        
+        try:
+            # Generate questions
+            questions = generate_questions(
+                mode=mode,
+                config=config,
+                pdf_path=pdf_path,
+                topic=topic
+            )
+            
+            return jsonify({
+                'success': True,
+                'questions': questions,
+                'count': len(questions)
+            })
+        
+        finally:
+            # Cleanup temp file
+            if pdf_path and os.path.exists(pdf_path):
+                try:
+                    os.unlink(pdf_path)
+                except:
+                    pass
+    
+    except Exception as e:
+        print(f"AI Generation Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Generation failed: {str(e)}'
+        }), 500
+
+
+@admin_bp.route("/ai-command-centre/save", methods=["POST"])
+@require_admin_role
+def ai_save_questions():
+    """Bulk save generated questions to database"""
+    try:
+        data = request.get_json()
+        questions = data.get('questions', [])
+        
+        if not questions:
+            return jsonify({'success': False, 'message': 'No questions to save'}), 400
+        
+        # Prepare for bulk insert
+        questions_to_insert = []
+        for q in questions:
+            questions_to_insert.append({
+                'exam_id': q['exam_id'],
+                'question_text': q['question_text'],
+                'option_a': q.get('option_a', ''),
+                'option_b': q.get('option_b', ''),
+                'option_c': q.get('option_c', ''),
+                'option_d': q.get('option_d', ''),
+                'correct_answer': q['correct_answer'],
+                'question_type': q.get('question_type', 'MCQ'),
+                'image_path': None,
+                'positive_marks': int(q.get('positive_marks', 4)),
+                'negative_marks': float(q.get('negative_marks', 1)),
+                'tolerance': float(q.get('tolerance', 0))
+            })
+        
+        # Bulk insert to Supabase
+        from supabase_db import supabase
+        response = supabase.table('questions').insert(questions_to_insert).execute()
+        
+        if response.data:
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(questions_to_insert)} questions',
+                'count': len(questions_to_insert)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to save questions to database'
+            }), 500
+    
+    except Exception as e:
+        print(f"Save Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Save failed: {str(e)}'
+        }), 500
+
+
+@admin_bp.route("/ai-command-centre/export-csv", methods=["POST"])
+@require_admin_role
+def ai_export_csv():
+    """Export generated questions to CSV"""
+    try:
+        data = request.get_json()
+        questions = data.get('questions', [])
+        
+        if not questions:
+            return jsonify({'success': False, 'message': 'No questions to export'}), 400
+        
+        # Create CSV content
+        import io
+        import csv
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            'exam_id', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d',
+            'correct_answer', 'question_type', 'image_path', 'positive_marks',
+            'negative_marks', 'tolerance'
+        ])
+        
+        # Write questions
+        for q in questions:
+            writer.writerow([
+                q['exam_id'],
+                q['question_text'],
+                q.get('option_a', ''),
+                q.get('option_b', ''),
+                q.get('option_c', ''),
+                q.get('option_d', ''),
+                q['correct_answer'],
+                q.get('question_type', 'MCQ'),
+                '',  # image_path
+                q.get('positive_marks', 4),
+                q.get('negative_marks', 1),
+                q.get('tolerance', 0)
+            ])
+        
+        # Create response
+        csv_content = output.getvalue()
+        output.close()
+        
+        from flask import Response
+        return Response(
+            csv_content,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename=ai_generated_questions.csv'
+            }
+        )
+    
+    except Exception as e:
+        print(f"Export Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Export failed: {str(e)}'
+        }), 500
