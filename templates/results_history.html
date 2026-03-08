@@ -81,9 +81,13 @@
   .card-list{display:block;}
   .controls-row{grid-template-columns:1fr;gap:.5rem;}
   .results-header h2{font-size:1.35rem;}
-  .pagination-row{padding:.6rem;}
+  .pagination-row{padding:.6rem;flex-wrap:wrap;}
   .page-controls{justify-content:center;width:100%;}
+  .mobile-pagination{display:flex;}
 }
+.mobile-pagination{display:none;flex-direction:column;gap:.6rem;padding:.6rem;border-top:1px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.01);}
+.mobile-pagination .page-controls{display:flex;gap:.4rem;align-items:center;justify-content:center;flex-wrap:wrap;}
+.mobile-pagination .page-bottom{display:flex;gap:.7rem;align-items:center;justify-content:center;flex-wrap:wrap;}
 </style>
 
 <div class="results-body">
@@ -268,6 +272,29 @@
         {% endif %}
       </div>
 
+      <!-- Mobile Pagination -->
+      <div class="mobile-pagination" id="mobilePaginationRow">
+        <div class="page-controls">
+          <button id="mFirstPage" class="action-btn small pagination-btn" title="First"><i class="fas fa-angle-double-left"></i> First</button>
+          <button id="mPrevPage" class="action-btn small pagination-btn" title="Previous"><i class="fas fa-angle-left"></i> Prev</button>
+          <button id="mNextPage" class="action-btn small pagination-btn" title="Next">Next <i class="fas fa-angle-right"></i></button>
+          <button id="mLastPage" class="action-btn small pagination-btn" title="Last">Last <i class="fas fa-angle-double-right"></i></button>
+        </div>
+        <div class="page-bottom">
+          <div class="page-info" id="mPageInfo">Page 1 of 1</div>
+          <div class="page-size-controls">
+            <label for="mPageSizeSelect" class="page-size-label">Rows:</label>
+            <select id="mPageSizeSelect" class="form-select">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="0">All</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -385,6 +412,18 @@ document.addEventListener('DOMContentLoaded', function () {
     if (lastPageBtn) lastPageBtn.disabled = currentPage === totalPages;
 
     if (paginationRow) paginationRow.style.display = 'flex';
+    const mPageInfo = document.getElementById('mPageInfo');
+    const mPaginationRow = document.getElementById('mobilePaginationRow');
+    if (mPageInfo) mPageInfo.textContent = `Page ${currentPage} of ${totalPages} • ${totalItems} results`;
+    if (mPaginationRow) mPaginationRow.style.display = 'flex';
+    const mFPB = document.getElementById('mFirstPage');
+    const mPPB = document.getElementById('mPrevPage');
+    const mNPB = document.getElementById('mNextPage');
+    const mLPB = document.getElementById('mLastPage');
+    if (mFPB) mFPB.disabled = currentPage === 1;
+    if (mPPB) mPPB.disabled = currentPage === 1;
+    if (mNPB) mNPB.disabled = currentPage === totalPages;
+    if (mLPB) mLPB.disabled = currentPage === totalPages;
   }
 
   function sortByDate(direction) {
@@ -497,6 +536,22 @@ document.addEventListener('DOMContentLoaded', function () {
   if (lastPageBtn) lastPageBtn.addEventListener('click', function() {
     const { totalPages } = calculatePagination();
     currentPage = totalPages; renderPage();
+  });
+
+  const mPrevPageBtn = document.getElementById('mPrevPage');
+  const mNextPageBtn = document.getElementById('mNextPage');
+  const mFirstPageBtn = document.getElementById('mFirstPage');
+  const mLastPageBtn = document.getElementById('mLastPage');
+  const mPageSizeSelect = document.getElementById('mPageSizeSelect');
+  if (mFirstPageBtn) mFirstPageBtn.addEventListener('click', function() { currentPage = 1; renderPage(); });
+  if (mPrevPageBtn) mPrevPageBtn.addEventListener('click', function() { if (currentPage > 1) { currentPage--; renderPage(); } });
+  if (mNextPageBtn) mNextPageBtn.addEventListener('click', function() { const { totalPages } = calculatePagination(); if (currentPage < totalPages) { currentPage++; renderPage(); } });
+  if (mLastPageBtn) mLastPageBtn.addEventListener('click', function() { const { totalPages } = calculatePagination(); currentPage = totalPages; renderPage(); });
+  if (mPageSizeSelect) mPageSizeSelect.addEventListener('change', function() {
+    pageSize = this.value === '0' ? 0 : parseInt(this.value);
+    const mainSelect = document.getElementById('pageSizeSelect');
+    if (mainSelect) mainSelect.value = this.value;
+    currentPage = 1; renderPage();
   });
 
   function addRippleEffect() {
