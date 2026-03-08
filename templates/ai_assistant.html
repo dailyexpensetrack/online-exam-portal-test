@@ -603,7 +603,7 @@ body:has(.ai-assistant-page) .professional-footer {
         border-radius: 0;
         border: none;
         overflow: hidden;
-        padding-bottom: 80px;
+        padding-bottom: var(--input-area-h, 80px);
     }
 
     .chat-header { padding: 0.6rem 0.85rem; flex-shrink: 0; }
@@ -1093,7 +1093,9 @@ class AIAssistant {
 
     _scrollToBottom() {
         const c = document.getElementById('chatMessages');
-        c.scrollTop = c.scrollHeight;
+        requestAnimationFrame(() => {
+            c.scrollTop = c.scrollHeight;
+        });
     }
 
     showTyping() {
@@ -1261,5 +1263,20 @@ function toggleMobileStats() {
         document.getElementById('mobileRemaining').textContent  = document.getElementById('remaining').textContent;
     }
 }
+    // Dynamically set padding-bottom of chat-main based on actual input area height
+    function syncInputAreaHeight() {
+        const inputArea = document.querySelector('.chat-input-area');
+        const chatMain = document.querySelector('.chat-main');
+        if (inputArea && chatMain && window.innerWidth <= 640) {
+            const h = inputArea.offsetHeight;
+            document.documentElement.style.setProperty('--input-area-h', h + 8 + 'px');
+            chatMain.style.paddingBottom = (h + 8) + 'px';
+        } else if (chatMain) {
+            chatMain.style.paddingBottom = '';
+        }
+    }
+    syncInputAreaHeight();
+    window.addEventListener('resize', syncInputAreaHeight);
+    new ResizeObserver(syncInputAreaHeight).observe(document.querySelector('.chat-input-area') || document.body);
 </script>
 {% endblock %}
